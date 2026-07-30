@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hanoi Hospital Map - Tra Cứu Sơ Đồ Bệnh Viện</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background-color: #f1f5f9; color: #1e293b; padding-bottom: 5px; }
+        header { background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white; padding: 30px 15px; text-align: center; }
+        nav { background: #cbd5e1; padding: 10px; display: flex; justify-content: center; gap: 20px; font-weight: 600; }
+        nav a { color: #1e3a8a; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .container { max-width: 800px; margin: 30px auto; padding: 0 15px; }
+        .search-box { width: 100%; padding: 15px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 20px; outline: none; }
+        .hospital-card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .hospital-card h3 { color: #0f172a; margin-bottom: 5px; }
+        .hospital-card p { font-size: 14px; color: #64748b; }
+        .btn-view { background: #3b82f6; color: white; padding: 10px 15px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600; }
+        .btn-view:hover { background: #2563eb; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>HANOI HOSPITAL MAP</h1>
+        <p>Bảng tra cứu sơ đồ và thông tin điều hướng khuôn viên bệnh viện</p>
+    </header>
+
+    <nav>
+        <a href="index.html">🏠 Tra Cứu</a>
+        <a href="generate-map.html">🛠️ Tự Vẽ Sơ Đồ</a>
+        <a href="feedback.html">💬 Ý Kiến Khách Hàng</a>
+    </nav>
+
+    <div class="container">
+        <input type="text" class="search-box" id="search" placeholder="Nhập tên bệnh viện để tìm kiếm..." oninput="searchHospital()">
+        
+        <div id="list">
+            <!-- Bệnh viện 1 -->
+            <div class="hospital-card" data-name="bệnh viện bạch mai giải phóng">
+                <div>
+                    <h3>Bệnh viện Bạch Mai</h3>
+                    <p>📍 78 Giải Phóng, Phương Mai, Đống Đa, Hà Nội</p>
+                </div>
+                <a href="hospitals/bach-mai.html" class="btn-view">Xem Sơ Đồ →</a>
+            </div>
+
+            <!-- Bệnh viện 2 -->
+            <div class="hospital-card" data-name="bệnh viện hữu nghị việt đức tràng thi">
+                <div>
+                    <h3>Bệnh viện Hữu nghị Việt Đức</h3>
+                    <p>📍 40 Tràng Thi, Hàng Bông, Hoàn Kiếm, Hà Nội</p>
+                </div>
+                <a href="hospitals/viet-duc.html" class="btn-view">Xem Sơ Đồ →</a>
+            </div>
+
+            <!-- Bệnh viện 3 -->
+            <div class="hospital-card" data-name="bệnh viện nhi trung ương la thành">
+                <div>
+                    <h3>Bệnh viện Nhi Trung ương</h3>
+                    <p>📍 18/879 La Thành, Láng Thượng, Đống Đa, Hà Nội</p>
+                </div>
+                <a href="hospitals/nhi-trung-uong.html" class="btn-view">Xem Sơ Đồ →</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function searchHospital() {
+            let input = document.getElementById('search').value.toLowerCase();
+            let cards = document.getElementsByClassName('hospital-card');
+            for (let i = 0; i < cards.length; i++) {
+                let name = cards[i].getAttribute('data-name');
+                cards[i].style.display = name.includes(input) ? "flex" : "none";
+            }
+        }
+    </script>
+</body>
+</html>
