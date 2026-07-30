@@ -6,18 +6,34 @@
     <title>Hanoi Hospital Map - Tra Cứu Sơ Đồ Bệnh Viện</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
-        body { background-color: #f1f5f9; color: #1e293b; padding-bottom: 5px; }
+        body { background-color: #f1f5f9; color: #1e293b; padding-bottom: 40px; }
         header { background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white; padding: 30px 15px; text-align: center; }
         nav { background: #cbd5e1; padding: 10px; display: flex; justify-content: center; gap: 20px; font-weight: 600; }
         nav a { color: #1e3a8a; text-decoration: none; }
         nav a:hover { text-decoration: underline; }
-        .container { max-width: 800px; margin: 30px auto; padding: 0 15px; }
+        .container { max-width: 900px; margin: 30px auto; padding: 0 15px; display: grid; grid-template-columns: 1fr; gap: 20px; }
+        
+        @media (min-width: 768px) {
+            .container { grid-template-columns: 450px 1fr; }
+        }
+
         .search-box { width: 100%; padding: 15px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 20px; outline: none; }
-        .hospital-card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
-        .hospital-card h3 { color: #0f172a; margin-bottom: 5px; }
-        .hospital-card p { font-size: 14px; color: #64748b; }
-        .btn-view { background: #3b82f6; color: white; padding: 10px 15px; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600; }
+        .hospital-card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; transition: 0.2s; }
+        .hospital-card.active { border-color: #3b82f6; background: #f0f7ff; }
+        .hospital-card h3 { color: #0f172a; margin-bottom: 5px; font-size: 16px; }
+        .hospital-card p { font-size: 13px; color: #64748b; }
+        .btn-view { background: #3b82f6; color: white; padding: 8px 12px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
         .btn-view:hover { background: #2563eb; }
+        
+        .map-panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); height: fit-content; }
+        .map-title { font-size: 18px; color: #1e3a8a; margin-bottom: 15px; font-weight: bold; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        .map-placeholder { padding: 40px 10px; text-align: center; color: #94a3b8; font-weight: 500; font-size: 14px; border: 2px dashed #cbd5e1; border-radius: 6px; }
+        
+        /* Cấu trúc lưới sơ đồ mặt bằng */
+        .map-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: #1e293b; padding: 12px; border-radius: 8px; margin-top: 10px; }
+        .map-block { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 12px 5px; text-align: center; border-radius: 6px; font-size: 11px; font-weight: 500; }
+        .bg-gate { background: #e11d48 !important; } /* Màu đỏ cho cổng */
+        .bg-tech { background: #059669 !important; } /* Màu xanh lá cho khu cấp cứu/khám bệnh */
     </style>
 </head>
 <body>
@@ -34,39 +50,111 @@
     </nav>
 
     <div class="container">
-        <input type="text" class="search-box" id="search" placeholder="Nhập tên bệnh viện để tìm kiếm..." oninput="searchHospital()">
-        
-        <div id="list">
-            <!-- Bệnh viện 1 -->
-            <div class="hospital-card" data-name="bệnh viện bạch mai giải phóng">
-                <div>
-                    <h3>Bệnh viện Bạch Mai</h3>
-                    <p>📍 78 Giải Phóng, Phương Mai, Đống Đa, Hà Nội</p>
+        <!-- Cột bên trái: Tìm kiếm và danh sách -->
+        <div>
+            <input type="text" class="search-box" id="search" placeholder="Nhập tên bệnh viện để tìm kiếm..." oninput="searchHospital()">
+            
+            <div id="list">
+                <div class="hospital-card" id="card-bachmai" data-name="bệnh viện bạch mai giải phóng">
+                    <div>
+                        <h3>Bệnh viện Bạch Mai</h3>
+                        <p>📍 78 Giải Phóng, Đống Đa, Hà Nội</p>
+                    </div>
+                    <button class="btn-view" onclick="showHospitalMap('bachmai')">Xem Sơ Đồ →</button>
                 </div>
-                <a href="hospitals/bach-mai.html" class="btn-view">Xem Sơ Đồ →</a>
-            </div>
 
-            <!-- Bệnh viện 2 -->
-            <div class="hospital-card" data-name="bệnh viện hữu nghị việt đức tràng thi">
-                <div>
-                    <h3>Bệnh viện Hữu nghị Việt Đức</h3>
-                    <p>📍 40 Tràng Thi, Hàng Bông, Hoàn Kiếm, Hà Nội</p>
+                <div class="hospital-card" id="card-vietduc" data-name="bệnh viện hữu nghị việt đức tràng thi">
+                    <div>
+                        <h3>Bệnh viện Hữu nghị Việt Đức</h3>
+                        <p>📍 40 Tràng Thi, Hoàn Kiếm, Hà Nội</p>
+                    </div>
+                    <button class="btn-view" onclick="showHospitalMap('vietduc')">Xem Sơ Đồ →</button>
                 </div>
-                <a href="hospitals/viet-duc.html" class="btn-view">Xem Sơ Đồ →</a>
-            </div>
 
-            <!-- Bệnh viện 3 -->
-            <div class="hospital-card" data-name="bệnh viện nhi trung ương la thành">
-                <div>
-                    <h3>Bệnh viện Nhi Trung ương</h3>
-                    <p>📍 18/879 La Thành, Láng Thượng, Đống Đa, Hà Nội</p>
+                <div class="hospital-card" id="card-nhitw" data-name="bệnh viện nhi trung ương la thành">
+                    <div>
+                        <h3>Bệnh viện Nhi Trung ương</h3>
+                        <p>📍 18/879 La Thành, Đống Đa, Hà Nội</p>
+                    </div>
+                    <button class="btn-view" onclick="showHospitalMap('nhitw')">Xem Sơ Đồ →</button>
                 </div>
-                <a href="hospitals/nhi-trung-uong.html" class="btn-view">Xem Sơ Đồ →</a>
+            </div>
+        </div>
+
+        <!-- Cột bên phải: Hiển thị sơ đồ giả lập tương ứng -->
+        <div class="map-panel">
+            <div class="map-title" id="mapTitle">Sơ đồ khuôn viên chi tiết</div>
+            <div id="mapContent">
+                <div class="map-placeholder">Vui lòng bấm nút "Xem Sơ Đồ" của một bệnh viện bất kỳ để hiển thị bản vẽ mô phỏng mặt bằng vị trí.</div>
             </div>
         </div>
     </div>
 
     <script>
+        // Dữ liệu sơ đồ mặt bằng mô phỏng của các viện
+        const mapData = {
+            bachmai: {
+                title: "Sơ đồ: Bệnh viện Bạch Mai",
+                html: `
+                    <p style="font-size:13px; margin-bottom:10px; color:#475569;">📍 <b>Gửi xe:</b> Xe máy gửi tại cổng Phương Mai. Ô tô gửi bãi gầm cầu vượt Ngã Tư Vọng.</p>
+                    <div class="map-grid">
+                        <div class="map-block bg-gate">Cổng 1 (Giải Phóng)</div>
+                        <div class="map-block">Tòa nhà Việt Nhật</div>
+                        <div class="map-block">Trung tâm Ung bướu</div>
+                        <div class="map-block bg-tech">Khoa Cấp cứu A9</div>
+                        <div class="map-block">Nhà hành chính A</div>
+                        <div class="map-block bg-tech">Khu Khám bệnh đa khoa</div>
+                        <div class="map-block">Viện Tim mạch</div>
+                        <div class="map-block">Nhà xe bệnh nhân</div>
+                        <div class="map-block bg-gate">Cổng 2 (Phương Mai)</div>
+                    </div>`
+            },
+            vietduc: {
+                title: "Sơ đồ: Bệnh viện Hữu nghị Việt Đức",
+                html: `
+                    <p style="font-size:13px; margin-bottom:10px; color:#475569;">📍 <b>Gửi xe:</b> Người nhà và bệnh nhân gửi xe dọc khu vực phố Phủ Doãn.</p>
+                    <div class="map-grid">
+                        <div class="map-block bg-gate">Cổng chính (Tràng Thi)</div>
+                        <div class="map-block bg-tech">Nhà kỹ thuật cao B</div>
+                        <div class="map-block">Phẫu thuật Thần kinh</div>
+                        <div class="map-block bg-tech">Khu Cấp cứu trung tâm</div>
+                        <div class="map-block">Nhà hành chính</div>
+                        <div class="map-block">Khám bệnh theo yêu cầu</div>
+                        <div class="map-block bg-gate">Cổng phụ (Phủ Doãn)</div>
+                        <div class="map-block">Chấn thương chỉnh hình</div>
+                        <div class="map-block">Khu nhà đại thể</div>
+                    </div>`
+            },
+            nhitw: {
+                title: "Sơ đồ: Bệnh viện Nhi Trung ương",
+                html: `
+                    <p style="font-size:13px; margin-bottom:10px; color:#475569;">📍 <b>Gửi xe:</b> Gửi xe trong khuôn viên viện (số lượng có hạn) hoặc ngõ 879 La Thành.</p>
+                    <div class="map-grid">
+                        <div class="map-block bg-gate">Cổng vào (La Thành)</div>
+                        <div class="map-block">Khối nhà Khám bệnh</div>
+                        <div class="map-block bg-tech">Cấp cứu chuyên sâu</div>
+                        <div class="map-block">Hồi sức sơ sinh</div>
+                        <div class="map-block bg-tech">Khu kỹ thuật cao</div>
+                        <div class="map-block">Khu cận lâm sàng</div>
+                        <div class="map-block bg-gate">Cổng phụ (Chùa Láng)</div>
+                        <div class="map-block">Khu vui chơi trẻ em</div>
+                        <div class="map-block">Căng tin hậu cần</div>
+                    </div>`
+            }
+        };
+
+        // Hàm xử lý hiển thị sơ đồ khi bấm nút
+        function showHospitalMap(id) {
+            // Đổi màu viền thẻ được chọn
+            document.querySelectorAll('.hospital-card').forEach(card => card.classList.remove('active'));
+            document.getElementById('card-' + id).classList.add('active');
+            
+            // Đổi tiêu đề và hiển thị lưới sơ đồ tương ứng
+            document.getElementById('mapTitle').innerText = mapData[id].title;
+            document.getElementById('mapContent').innerHTML = mapData[id].html;
+        }
+
+        // Hàm tìm kiếm
         function searchHospital() {
             let input = document.getElementById('search').value.toLowerCase();
             let cards = document.getElementsByClassName('hospital-card');
@@ -78,3 +166,4 @@
     </script>
 </body>
 </html>
+
