@@ -77,6 +77,9 @@
                 <label>Địa chỉ</label>
                 <input type="text" id="hosAddr" placeholder="Ví dụ: 43 Tràng Thi, Hoàn Kiếm, Hà Nội">
             </div>
+            <button class="secondary" type="button" onclick="locateMe()" style="margin-top:0;">📍 Định vị vị trí của tôi (test nhanh)</button>
+            <p class="hint" style="margin:6px 0 12px;">Bấm nút này để bản đồ tự nhảy tới đúng nơi bạn đang đứng (dùng GPS trình duyệt) — tiện khi thử nghiệm ngay tại nhà/vị trí hiện tại, thay vì kéo bản đồ tìm bằng tay.</p>
+
             <div class="form-group">
                 <label>Toạ độ trung tâm (điền tự động khi bấm map lần đầu)</label>
                 <input type="text" id="hosCenter" placeholder="lat, lng" readonly>
@@ -233,6 +236,26 @@
                 centerInput.value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
             }
         });
+
+        function locateMe() {
+            if (!navigator.geolocation) {
+                alert('Trình duyệt của bạn không hỗ trợ định vị GPS.');
+                return;
+            }
+            document.getElementById('pendingPinHint').innerHTML = '⏳ Đang xin quyền định vị GPS — hãy bấm "Cho phép" nếu trình duyệt hỏi...';
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    map.flyTo([latitude, longitude], 18, { duration: 1 });
+                    document.getElementById('pendingPinHint').innerHTML =
+                        '✅ Đã tới vị trí hiện tại của bạn — giờ bấm đúng điểm bạn muốn ghim trên bản đồ để chọn toạ độ.';
+                },
+                (err) => {
+                    alert('Không lấy được vị trí: ' + err.message + '. Bạn cần bấm "Cho phép" khi trình duyệt hỏi quyền vị trí, hoặc kiểm tra đã bật định vị trên máy/trình duyệt chưa.');
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
 
         document.getElementById('pinZone').addEventListener('change', (e) => {
             document.getElementById('pinZoneCustom').style.display = e.target.value === '__custom' ? 'block' : 'none';
