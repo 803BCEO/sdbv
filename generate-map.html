@@ -4,21 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tự Động Tạo Sơ Đồ Bệnh Viện</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
         body { padding: 20px; background: #f1f5f9; }
         nav { background: #cbd5e1; padding: 10px; display: flex; justify-content: center; gap: 20px; margin:-20px -20px 20px -20px; font-weight:600;}
         nav a { color: #1e3a8a; text-decoration: none; }
-        .wrapper { max-width: 900px; margin: auto; display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+        .wrapper { max-width: 1100px; margin: auto; display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
+        @media (max-width: 850px) { .wrapper { grid-template-columns: 1fr; } }
+
         .form-box { background: white; padding: 20px; border-radius: 8px; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
-        input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
-        button { width: 100%; background: #10b981; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; }
+        input, select, textarea { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
+        button { width: 100%; background: #10b981; color: white; border: none; padding: 11px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size:13px; }
         button:hover { background: #059669; }
+        button.secondary { background:#3b82f6; margin-top:8px; }
+        button.secondary:hover { background:#2563eb; }
+        .hint { font-size: 11.5px; color:#666; margin-bottom:12px; line-height:1.5; }
+
         .preview-box { background: white; padding: 20px; border-radius: 8px; box-shadow:0 2px 4px rgba(0,0,0,0.05); }
-        .map-output { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; background: #1e293b; padding: 15px; border-radius: 8px; min-height: 250px; }
-        .zone-card { background: rgba(255,255,255,0.15); color: white; padding: 15px; text-align: center; border-radius: 6px; font-size: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.2); }
+        #pinMap { width:100%; height:380px; border-radius:8px; margin-top:10px; }
+        .pin-list { margin-top:14px; max-height:220px; overflow-y:auto; border-top:1px solid #e2e8f0; padding-top:8px; }
+        .pin-item { background:#f8fafc; padding:8px 10px; border-radius:6px; margin-bottom:6px; font-size:12.5px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+        .pin-item button { width:auto; background:#ef4444; padding:4px 8px; font-size:11px; }
+        .pin-item button:hover { background:#dc2626; }
+        textarea#jsonOutput { font-family: 'Courier New', monospace; font-size:11.5px; height:200px; margin-top:8px; }
+        .badge { display:inline-block; background:#e0f2fe; color:#0369a1; font-size:10.5px; padding:2px 6px; border-radius:4px; margin-left:6px; }
     </style>
 </head>
 <body>
@@ -32,45 +44,198 @@
     <div class="wrapper">
         <div class="form-box">
             <h2>Tạo Sơ Đồ Mới</h2>
-            <p style="font-size:12px; color:#666; margin-bottom:15px;">Nhập thông tin mặt bằng để hệ thống tự động kết xuất đồ họa mô phỏng.</p>
-            
+            <p class="hint">
+                Bấm trực tiếp lên bản đồ vệ tinh/OSM bên phải để <b>ghim toạ độ GPS thật</b> cho từng khoa/phòng —
+                không gõ tay toạ độ. Sau khi ghim xong tất cả điểm, bấm "Xuất JSON" và dán khối đó vào biến
+                <code>HOSPITALS</code> trong file <code>index.html</code>.
+            </p>
+
+            <div class="form-group">
+                <label>Mã bệnh viện (id, không dấu, không cách)</label>
+                <input type="text" id="hosId" placeholder="vd: phusantw">
+            </div>
             <div class="form-group">
                 <label>Tên bệnh viện</label>
                 <input type="text" id="hosName" placeholder="Ví dụ: Bệnh viện Phụ sản Trung ương">
             </div>
             <div class="form-group">
-                <label>Danh sách phân khu (Cách nhau bằng dấu phẩy)</label>
-                <textarea id="hosZones" rows="6" placeholder="Cổng chính, Khoa cấp cứu, Nhà A phòng khám, Nhà B nội trú, Nhà xe, Khoa dược"></textarea>
+                <label>Địa chỉ</label>
+                <input type="text" id="hosAddr" placeholder="Ví dụ: 43 Tràng Thi, Hoàn Kiếm, Hà Nội">
             </div>
-            <button onclick="generateMap()">Bắt Đầu Vẽ Sơ Đồ</button>
+            <div class="form-group">
+                <label>Toạ độ trung tâm (điền tự động khi bấm map lần đầu)</label>
+                <input type="text" id="hosCenter" placeholder="lat, lng" readonly>
+            </div>
+
+            <hr style="margin:16px 0; border:none; border-top:1px solid #e2e8f0;">
+
+            <h3 style="font-size:14px; margin-bottom:8px;">Điểm đang chọn <span class="badge" id="pinCountBadge">0</span></h3>
+
+            <div class="form-group">
+                <label>Tên khoa / phòng ban</label>
+                <input type="text" id="pinName" placeholder="Ví dụ: Khoa Cấp cứu">
+            </div>
+            <div class="form-group">
+                <label>Mô tả ngắn</label>
+                <input type="text" id="pinSub" placeholder="Ví dụ: Tiếp nhận cấp cứu 24/24">
+            </div>
+            <div class="form-group">
+                <label>Khu vực (zone)</label>
+                <select id="pinZone">
+                    <option value="cong-bai-xe">Cổng / bãi xe</option>
+                    <option value="kham-benh">Khu khám bệnh</option>
+                    <option value="cap-cuu">Cấp cứu</option>
+                    <option value="duoc">Nhà thuốc</option>
+                    <option value="noi-tru">Khu nội trú</option>
+                    <option value="phau-thuat">Khu phẫu thuật</option>
+                    <option value="__custom">+ Zone khác (tự nhập)...</option>
+                </select>
+                <input type="text" id="pinZoneCustom" placeholder="Nhập tên zone mới" style="display:none; margin-top:6px;">
+            </div>
+            <div class="form-group">
+                <label>Tầng</label>
+                <input type="text" id="pinFloor" placeholder="Ví dụ: Tầng 1, Ngoài trời...">
+            </div>
+            <p class="hint" id="pendingPinHint">👉 Bấm một điểm trên bản đồ để ghim, rồi điền thông tin và bấm "Lưu điểm này".</p>
+            <button onclick="saveCurrentPin()">Lưu điểm này</button>
+            <button class="secondary" onclick="exportJSON()">Xuất JSON</button>
         </div>
 
         <div class="preview-box">
-            <h2 id="previewTitle">Kết quả sơ đồ trực quan</h2>
-            <div class="map-output" id="mapOutput">
-                <p style="color:#94a3b8; grid-column: span 3; text-align:center; margin-top:100px;">Vui lòng nhập dữ liệu và bấm nút để dựng bản đồ...</p>
+            <h2>Bản đồ ghim điểm (toạ độ thật)</h2>
+            <div id="pinMap"></div>
+            <div class="pin-list" id="pinList">
+                <p style="color:#94a3b8; font-size:12.5px;">Chưa có điểm nào được ghim.</p>
             </div>
+            <textarea id="jsonOutput" readonly placeholder="Bấm 'Xuất JSON' để lấy khối dữ liệu dán vào index.html..."></textarea>
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script>
-        function generateMap() {
-            let name = document.getElementById('hosName').value || "Sơ đồ bệnh viện mới";
-            let zonesText = document.getElementById('hosZones').value;
-            
-            if(!zonesText.trim()) { alert("Vui lòng điền danh sách phân khu!"); return; }
-            
-            document.getElementById('previewTitle').innerText = "Sơ đồ: " + name;
-            let zonesArray = zonesText.split(',');
-            let outputHTML = "";
-            
-            zonesArray.forEach(zone => {
-                if(zone.trim() !== "") {
-                    outputHTML += `<div class="zone-card">📋 ${zone.trim()}</div>`;
-                }
+        // Trung tâm Hà Nội làm mặc định khi chưa ghim điểm nào
+        const map = L.map('pinMap').setView([21.0285, 105.8542], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        L.control.scale({ metric:true, imperial:false, position:'bottomright' }).addTo(map);
+
+        let pins = [];          // các điểm đã lưu: {name, sub, lat, lng, zone, floor}
+        let pendingLatLng = null;
+        let pendingMarker = null;
+
+        map.on('click', (e) => {
+            pendingLatLng = e.latlng;
+            if (pendingMarker) map.removeLayer(pendingMarker);
+            pendingMarker = L.marker(e.latlng, { opacity: 0.6 }).addTo(map);
+            document.getElementById('pendingPinHint').innerHTML =
+                `📍 Đang chọn: <b>${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}</b> — điền thông tin bên trên rồi bấm "Lưu điểm này".`;
+
+            const centerInput = document.getElementById('hosCenter');
+            if (!centerInput.value) {
+                centerInput.value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+            }
+        });
+
+        document.getElementById('pinZone').addEventListener('change', (e) => {
+            document.getElementById('pinZoneCustom').style.display = e.target.value === '__custom' ? 'block' : 'none';
+        });
+
+        function saveCurrentPin() {
+            if (!pendingLatLng) { alert('Vui lòng bấm một điểm trên bản đồ trước!'); return; }
+            const name = document.getElementById('pinName').value.trim();
+            const sub = document.getElementById('pinSub').value.trim();
+            const floor = document.getElementById('pinFloor').value.trim() || 'Tầng 1';
+            let zone = document.getElementById('pinZone').value;
+            if (zone === '__custom') {
+                zone = document.getElementById('pinZoneCustom').value.trim() || 'khac';
+            }
+            if (!name) { alert('Vui lòng nhập tên khoa/phòng ban!'); return; }
+
+            pins.push({ name, sub, lat: pendingLatLng.lat, lng: pendingLatLng.lng, zone, floor });
+
+            const finalIcon = L.divIcon({
+                className: '', iconSize:[22,22], iconAnchor:[11,11],
+                html: `<div style="background:#1e3a8a;color:#fff;width:22px;height:22px;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;
+                    border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);">${pins.length}</div>`
             });
-            
-            document.getElementById('mapOutput').innerHTML = outputHTML;
+            L.marker(pendingLatLng, { icon: finalIcon }).addTo(map).bindPopup(`<b>${name}</b><br>${sub}`);
+
+            if (pendingMarker) { map.removeLayer(pendingMarker); pendingMarker = null; }
+            pendingLatLng = null;
+
+            document.getElementById('pinName').value = '';
+            document.getElementById('pinSub').value = '';
+            document.getElementById('pinFloor').value = '';
+            document.getElementById('pinZoneCustom').value = '';
+            document.getElementById('pendingPinHint').innerHTML =
+                '👉 Bấm điểm tiếp theo trên bản đồ để ghim, hoặc bấm "Xuất JSON" nếu đã xong.';
+
+            renderPinList();
+        }
+
+        function removePin(i) {
+            pins.splice(i, 1);
+            // Vẽ lại toàn bộ marker đã lưu cho khớp số thứ tự
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker && layer !== pendingMarker) map.removeLayer(layer);
+            });
+            pins.forEach((p, idx) => {
+                const icon = L.divIcon({
+                    className: '', iconSize:[22,22], iconAnchor:[11,11],
+                    html: `<div style="background:#1e3a8a;color:#fff;width:22px;height:22px;border-radius:50%;
+                        display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;
+                        border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);">${idx+1}</div>`
+                });
+                L.marker([p.lat, p.lng], { icon }).addTo(map).bindPopup(`<b>${p.name}</b><br>${p.sub}`);
+            });
+            renderPinList();
+        }
+
+        function renderPinList() {
+            document.getElementById('pinCountBadge').textContent = pins.length;
+            const el = document.getElementById('pinList');
+            if (pins.length === 0) {
+                el.innerHTML = '<p style="color:#94a3b8; font-size:12.5px;">Chưa có điểm nào được ghim.</p>';
+                return;
+            }
+            el.innerHTML = pins.map((p, i) => `
+                <div class="pin-item">
+                    <span>${i+1}. <b>${p.name}</b> — ${p.floor} (${p.lat.toFixed(5)}, ${p.lng.toFixed(5)})</span>
+                    <button onclick="removePin(${i})">Xoá</button>
+                </div>`).join('');
+        }
+
+        function exportJSON() {
+            const id = document.getElementById('hosId').value.trim();
+            const name = document.getElementById('hosName').value.trim();
+            const addr = document.getElementById('hosAddr').value.trim();
+            const centerRaw = document.getElementById('hosCenter').value.trim();
+
+            if (!id || !name || pins.length === 0) {
+                alert('Cần điền Mã bệnh viện, Tên bệnh viện, và ghim ít nhất 1 điểm trước khi xuất JSON.');
+                return;
+            }
+            const center = centerRaw
+                ? centerRaw.split(',').map(v => parseFloat(v.trim()))
+                : [pins[0].lat, pins[0].lng];
+
+            const entry = {
+                [id]: {
+                    name: name,
+                    address: addr,
+                    center: center,
+                    stops: pins.map(p => ({
+                        name: p.name, sub: p.sub, lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6),
+                        zone: p.zone, floor: p.floor
+                    }))
+                }
+            };
+
+            // In ra dạng gọn để dễ dán trực tiếp vào object HOSPITALS trong index.html
+            const body = JSON.stringify(entry, null, 4).replace(/^\{|\}$/g, '').trim();
+            document.getElementById('jsonOutput').value = body + ',';
         }
     </script>
 </body>

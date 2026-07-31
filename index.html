@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hanoi Hospital Map - Tra Cứu Sơ Đồ Bệnh Viện</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: #f1f5f9; color: #1e293b; padding-bottom: 40px; }
@@ -11,29 +14,37 @@
         nav { background: #cbd5e1; padding: 10px; display: flex; justify-content: center; gap: 20px; font-weight: 600; }
         nav a { color: #1e3a8a; text-decoration: none; }
         nav a:hover { text-decoration: underline; }
-        .container { max-width: 900px; margin: 30px auto; padding: 0 15px; display: grid; grid-template-columns: 1fr; gap: 20px; }
-        
+        .container { max-width: 1000px; margin: 30px auto; padding: 0 15px; display: grid; grid-template-columns: 1fr; gap: 20px; }
+
         @media (min-width: 768px) {
-            .container { grid-template-columns: 450px 1fr; }
+            .container { grid-template-columns: 340px 1fr; }
         }
 
         .search-box { width: 100%; padding: 15px; font-size: 16px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 20px; outline: none; }
-        .hospital-card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; transition: 0.2s; }
+        .hospital-card { background: white; border-radius: 8px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; transition: 0.2s; gap:8px; }
         .hospital-card.active { border-color: #3b82f6; background: #f0f7ff; }
-        .hospital-card h3 { color: #0f172a; margin-bottom: 5px; font-size: 16px; }
-        .hospital-card p { font-size: 13px; color: #64748b; }
-        .btn-view { background: #3b82f6; color: white; padding: 8px 12px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .hospital-card h3 { color: #0f172a; margin-bottom: 5px; font-size: 15px; }
+        .hospital-card p { font-size: 12.5px; color: #64748b; }
+        .btn-view { background: #3b82f6; color: white; padding: 8px 12px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; white-space:nowrap; }
         .btn-view:hover { background: #2563eb; }
-        
-        .map-panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); height: fit-content; }
-        .map-title { font-size: 18px; color: #1e3a8a; margin-bottom: 15px; font-weight: bold; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+
+        .map-panel { background: white; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .map-title { font-size: 18px; color: #1e3a8a; margin-bottom: 10px; font-weight: bold; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
         .map-placeholder { padding: 40px 10px; text-align: center; color: #94a3b8; font-weight: 500; font-size: 14px; border: 2px dashed #cbd5e1; border-radius: 6px; }
-        
-        /* Cấu trúc lưới sơ đồ mặt bằng */
-        .map-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: #1e293b; padding: 12px; border-radius: 8px; margin-top: 10px; }
-        .map-block { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 12px 5px; text-align: center; border-radius: 6px; font-size: 11px; font-weight: 500; }
-        .bg-gate { background: #e11d48 !important; } /* Màu đỏ cho cổng */
-        .bg-tech { background: #059669 !important; } /* Màu xanh lá cho khu cấp cứu/khám bệnh */
+
+        .toolbar { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+        #deptSearch { flex:1; padding:8px 10px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px; }
+        .floor-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+        .floor-tabs button { font-size:11.5px; padding:4px 10px; border-radius:12px; border:1px solid #cbd5e1; background:#fff; color:#475569; cursor:pointer; }
+        .floor-tabs button.active { background:#1e3a8a; color:#fff; border-color:#1e3a8a; }
+
+        #hospitalMap { width:100%; height:360px; border-radius:8px; }
+        .legend { margin-top:10px; font-size:11.5px; color:#475569; display:flex; flex-wrap:wrap; gap:12px; }
+        .legend .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+        .dept-list { margin-top:10px; max-height:180px; overflow-y:auto; border-top:1px solid #e2e8f0; padding-top:8px; }
+        .dept-item { padding:6px 8px; border-radius:6px; cursor:pointer; font-size:12.5px; display:flex; gap:8px; align-items:center; }
+        .dept-item:hover { background:#f0f7ff; }
+        .dept-item .num { width:18px; height:18px; border-radius:50%; color:#fff; font-size:10px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
     </style>
 </head>
 <body>
@@ -50,120 +61,241 @@
     </nav>
 
     <div class="container">
-        <!-- Cột bên trái: Tìm kiếm và danh sách -->
+        <!-- Cột bên trái: Tìm kiếm và danh sách bệnh viện -->
         <div>
             <input type="text" class="search-box" id="search" placeholder="Nhập tên bệnh viện để tìm kiếm..." oninput="searchHospital()">
-            
-            <div id="list">
-                <div class="hospital-card" id="card-bachmai" data-name="bệnh viện bạch mai giải phóng">
-                    <div>
-                        <h3>Bệnh viện Bạch Mai</h3>
-                        <p>📍 78 Giải Phóng, Đống Đa, Hà Nội</p>
-                    </div>
-                    <button class="btn-view" onclick="showHospitalMap('bachmai')">Xem Sơ Đồ →</button>
-                </div>
-
-                <div class="hospital-card" id="card-vietduc" data-name="bệnh viện hữu nghị việt đức tràng thi">
-                    <div>
-                        <h3>Bệnh viện Hữu nghị Việt Đức</h3>
-                        <p>📍 40 Tràng Thi, Hoàn Kiếm, Hà Nội</p>
-                    </div>
-                    <button class="btn-view" onclick="showHospitalMap('vietduc')">Xem Sơ Đồ →</button>
-                </div>
-
-                <div class="hospital-card" id="card-nhitw" data-name="bệnh viện nhi trung ương la thành">
-                    <div>
-                        <h3>Bệnh viện Nhi Trung ương</h3>
-                        <p>📍 18/879 La Thành, Đống Đa, Hà Nội</p>
-                    </div>
-                    <button class="btn-view" onclick="showHospitalMap('nhitw')">Xem Sơ Đồ →</button>
-                </div>
-            </div>
+            <div id="list"></div>
         </div>
 
-        <!-- Cột bên phải: Hiển thị sơ đồ giả lập tương ứng -->
+        <!-- Cột bên phải: Bản đồ thực (Leaflet + GPS) -->
         <div class="map-panel">
             <div class="map-title" id="mapTitle">Sơ đồ khuôn viên chi tiết</div>
             <div id="mapContent">
-                <div class="map-placeholder">Vui lòng bấm nút "Xem Sơ Đồ" của một bệnh viện bất kỳ để hiển thị bản vẽ mô phỏng mặt bằng vị trí.</div>
+                <div class="map-placeholder">Vui lòng bấm nút "Xem Sơ Đồ" của một bệnh viện bất kỳ để hiển thị bản đồ khuôn viên với tọa độ thực.</div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
     <script>
-        // Dữ liệu sơ đồ mặt bằng mô phỏng của các viện
-        const mapData = {
+        /* =====================================================================
+           NGUỒN DỮ LIỆU
+           Đây là nơi DUY NHẤT cần cập nhật khi thêm bệnh viện mới hoặc thêm
+           điểm mới cho bệnh viện đã có. Toạ độ nên lấy từ trang
+           generate-map.html (công cụ ghim điểm trên bản đồ thực), KHÔNG gõ tay.
+           zone và floor không giới hạn danh sách cố định — thêm giá trị mới
+           tự động có màu và tự động lên bộ lọc tầng.
+           ===================================================================== */
+        const HOSPITALS = {
             bachmai: {
-                title: "Sơ đồ: Bệnh viện Bạch Mai",
-                html: `
-                    <p style="font-size:13px; margin-bottom:10px; color:#475569;">📍 <b>Gửi xe:</b> Xe máy gửi tại cổng Phương Mai. Ô tô gửi bãi gầm cầu vượt Ngã Tư Vọng.</p>
-                    <div class="map-grid">
-                        <div class="map-block bg-gate">Cổng 1 (Giải Phóng)</div>
-                        <div class="map-block">Tòa nhà Việt Nhật</div>
-                        <div class="map-block">Trung tâm Ung bướu</div>
-                        <div class="map-block bg-tech">Khoa Cấp cứu A9</div>
-                        <div class="map-block">Nhà hành chính A</div>
-                        <div class="map-block bg-tech">Khu Khám bệnh đa khoa</div>
-                        <div class="map-block">Viện Tim mạch</div>
-                        <div class="map-block">Nhà xe bệnh nhân</div>
-                        <div class="map-block bg-gate">Cổng 2 (Phương Mai)</div>
-                    </div>`
+                name: "Bệnh viện Bạch Mai",
+                address: "78 Giải Phóng, Đống Đa, Hà Nội",
+                center: [21.0011, 105.8412],
+                stops: [
+                    { name:"Cổng 1 (Giải Phóng)", sub:"Cổng chính vào viện", lat:21.0016, lng:105.8408, zone:"cong-bai-xe", floor:"Ngoài trời" },
+                    { name:"Cổng 2 (Phương Mai)", sub:"Cổng phụ, gần bãi xe", lat:21.0006, lng:105.8402, zone:"cong-bai-xe", floor:"Ngoài trời" },
+                    { name:"Khu Khám bệnh đa khoa", sub:"Đăng ký khám, lấy số thứ tự", lat:21.0012, lng:105.8413, zone:"kham-benh", floor:"Tầng 1" },
+                    { name:"Khoa Cấp cứu A9", sub:"Tiếp nhận cấp cứu 24/24", lat:21.0009, lng:105.8420, zone:"cap-cuu", floor:"Tầng 1" },
+                    { name:"Viện Tim mạch", sub:"Khám và điều trị tim mạch", lat:21.0005, lng:105.8418, zone:"noi-tru", floor:"Tầng 3" },
+                    { name:"Trung tâm Ung bướu", sub:"Toà nhà Việt Nhật", lat:21.0018, lng:105.8422, zone:"noi-tru", floor:"Tầng 2" },
+                    { name:"Nhà xe bệnh nhân", sub:"Gửi xe máy/ô tô", lat:21.0020, lng:105.8405, zone:"cong-bai-xe", floor:"Ngoài trời" }
+                ]
             },
             vietduc: {
-                title: "Sơ đồ: Bệnh viện Hữu nghị Việt Đức",
-                html: `
-                    <p style="font-size:13px; margin-bottom:10px; color:#475569;">📍 <b>Gửi xe:</b> Người nhà và bệnh nhân gửi xe dọc khu vực phố Phủ Doãn.</p>
-                    <div class="map-grid">
-                        <div class="map-block bg-gate">Cổng chính (Tràng Thi)</div>
-                        <div class="map-block bg-tech">Nhà kỹ thuật cao B</div>
-                        <div class="map-block">Phẫu thuật Thần kinh</div>
-                        <div class="map-block bg-tech">Khu Cấp cứu trung tâm</div>
-                        <div class="map-block">Nhà hành chính</div>
-                        <div class="map-block">Khám bệnh theo yêu cầu</div>
-                        <div class="map-block bg-gate">Cổng phụ (Phủ Doãn)</div>
-                        <div class="map-block">Chấn thương chỉnh hình</div>
-                        <div class="map-block">Khu nhà đại thể</div>
-                    </div>`
+                name: "Bệnh viện Hữu nghị Việt Đức",
+                address: "40 Tràng Thi, Hoàn Kiếm, Hà Nội",
+                center: [21.0292, 105.8478],
+                stops: [
+                    { name:"Cổng chính (Tràng Thi)", sub:"Vào từ phố Tràng Thi", lat:21.0293, lng:105.8476, zone:"cong-bai-xe", floor:"Ngoài trời" },
+                    { name:"Cổng phụ (Phủ Doãn)", sub:"Người nhà gửi xe dọc phố Phủ Doãn", lat:21.0288, lng:105.8474, zone:"cong-bai-xe", floor:"Ngoài trời" },
+                    { name:"Khám bệnh theo yêu cầu", sub:"Đăng ký khám ngoại khoa", lat:21.0290, lng:105.8480, zone:"kham-benh", floor:"Tầng 1" },
+                    { name:"Khu Cấp cứu trung tâm", sub:"Tiếp nhận cấp cứu", lat:21.0291, lng:105.8483, zone:"cap-cuu", floor:"Tầng 1" },
+                    { name:"Nhà kỹ thuật cao B", sub:"Phẫu thuật thần kinh, chẩn đoán hình ảnh", lat:21.0287, lng:105.8483, zone:"phau-thuat", floor:"Tầng 2" },
+                    { name:"Chấn thương chỉnh hình", sub:"Khu điều trị nội trú", lat:21.0285, lng:105.8479, zone:"noi-tru", floor:"Tầng 4" }
+                ]
             },
             nhitw: {
-                title: "Sơ đồ: Bệnh viện Nhi Trung ương",
-                html: `
-                    <p style="font-size:13px; margin-bottom:10px; color:#475569;">📍 <b>Gửi xe:</b> Gửi xe trong khuôn viên viện (số lượng có hạn) hoặc ngõ 879 La Thành.</p>
-                    <div class="map-grid">
-                        <div class="map-block bg-gate">Cổng vào (La Thành)</div>
-                        <div class="map-block">Khối nhà Khám bệnh</div>
-                        <div class="map-block bg-tech">Cấp cứu chuyên sâu</div>
-                        <div class="map-block">Hồi sức sơ sinh</div>
-                        <div class="map-block bg-tech">Khu kỹ thuật cao</div>
-                        <div class="map-block">Khu cận lâm sàng</div>
-                        <div class="map-block bg-gate">Cổng phụ (Chùa Láng)</div>
-                        <div class="map-block">Khu vui chơi trẻ em</div>
-                        <div class="map-block">Căng tin hậu cần</div>
-                    </div>`
+                name: "Bệnh viện Nhi Trung ương",
+                address: "18/879 La Thành, Đống Đa, Hà Nội",
+                center: [21.0134, 105.8115],
+                stops: [
+                    { name:"Cổng vào (La Thành)", sub:"Cổng chính từ đường La Thành", lat:21.0136, lng:105.8112, zone:"cong-bai-xe", floor:"Ngoài trời" },
+                    { name:"Cổng phụ (Chùa Láng)", sub:"Lối vào phụ phía Chùa Láng", lat:21.0130, lng:105.8108, zone:"cong-bai-xe", floor:"Ngoài trời" },
+                    { name:"Khối nhà Khám bệnh", sub:"Đăng ký khám cho trẻ", lat:21.0134, lng:105.8116, zone:"kham-benh", floor:"Tầng 1" },
+                    { name:"Cấp cứu chuyên sâu", sub:"Cấp cứu nhi khoa", lat:21.0133, lng:105.8119, zone:"cap-cuu", floor:"Tầng 1" },
+                    { name:"Hồi sức sơ sinh", sub:"Khu chăm sóc đặc biệt sơ sinh", lat:21.0137, lng:105.8120, zone:"noi-tru", floor:"Tầng 2" },
+                    { name:"Khu kỹ thuật cao", sub:"Cận lâm sàng, chẩn đoán hình ảnh", lat:21.0131, lng:105.8114, zone:"kham-benh", floor:"Tầng 1" }
+                ]
             }
         };
 
-        // Hàm xử lý hiển thị sơ đồ khi bấm nút
-        function showHospitalMap(id) {
-            // Đổi màu viền thẻ được chọn
-            document.querySelectorAll('.hospital-card').forEach(card => card.classList.remove('active'));
-            document.getElementById('card-' + id).classList.add('active');
-            
-            // Đổi tiêu đề và hiển thị lưới sơ đồ tương ứng
-            document.getElementById('mapTitle').innerText = mapData[id].title;
-            document.getElementById('mapContent').innerHTML = mapData[id].html;
+        const ZONE_LABELS = {
+            "cong-bai-xe": "Cổng / bãi xe",
+            "kham-benh": "Khu khám bệnh",
+            "cap-cuu": "Cấp cứu",
+            "duoc": "Nhà thuốc",
+            "noi-tru": "Khu nội trú",
+            "phau-thuat": "Khu phẫu thuật"
+        };
+        const PALETTE = ["#3b82f6","#e11d48","#059669","#f59e0b","#7c3aed","#0891b2","#8A8370"];
+
+        function zonePaletteFor(stops){
+            const zones = [...new Set(stops.map(s=>s.zone))];
+            const map = {};
+            zones.forEach((z,i)=> map[z] = PALETTE[i % PALETTE.length]);
+            return map;
         }
 
-        // Hàm tìm kiếm
+        // ---- Render danh sách thẻ bệnh viện ở cột trái ----
+        const listEl = document.getElementById('list');
+        Object.keys(HOSPITALS).forEach(id=>{
+            const h = HOSPITALS[id];
+            const card = document.createElement('div');
+            card.className = 'hospital-card';
+            card.id = 'card-' + id;
+            card.dataset.name = (h.name + ' ' + h.address).toLowerCase();
+            card.innerHTML = `
+                <div>
+                    <h3>${h.name}</h3>
+                    <p>📍 ${h.address}</p>
+                </div>
+                <button class="btn-view" onclick="showHospitalMap('${id}')">Xem Sơ Đồ →</button>`;
+            listEl.appendChild(card);
+        });
+
         function searchHospital() {
-            let input = document.getElementById('search').value.toLowerCase();
-            let cards = document.getElementsByClassName('hospital-card');
-            for (let i = 0; i < cards.length; i++) {
-                let name = cards[i].getAttribute('data-name');
-                cards[i].style.display = name.includes(input) ? "flex" : "none";
+            const input = document.getElementById('search').value.toLowerCase();
+            document.querySelectorAll('.hospital-card').forEach(card=>{
+                card.style.display = card.dataset.name.includes(input) ? 'flex' : 'none';
+            });
+        }
+
+        // ---- Trạng thái bản đồ đang hiển thị ----
+        let currentMap = null, currentCluster = null, currentHospitalId = null, activeFloor = null;
+
+        function showHospitalMap(id) {
+            document.querySelectorAll('.hospital-card').forEach(c=>c.classList.remove('active'));
+            document.getElementById('card-' + id).classList.add('active');
+
+            currentHospitalId = id;
+            activeFloor = null;
+            const h = HOSPITALS[id];
+            document.getElementById('mapTitle').innerText = 'Sơ đồ: ' + h.name;
+
+            document.getElementById('mapContent').innerHTML = `
+                <div class="toolbar">
+                    <input type="text" id="deptSearch" placeholder="Tìm khoa / phòng ban...">
+                </div>
+                <div class="floor-tabs" id="floorTabs"></div>
+                <div id="hospitalMap"></div>
+                <div class="legend" id="legend"></div>
+                <div class="dept-list" id="deptList"></div>`;
+
+            document.getElementById('deptSearch').addEventListener('input', e=> renderDeptList(e.target.value));
+
+            // Huỷ map cũ (nếu có) trước khi tạo map mới, tránh lỗi "Map container is already initialized"
+            if (currentMap) { currentMap.remove(); currentMap = null; }
+
+            currentMap = L.map('hospitalMap').setView(h.center, 17);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(currentMap);
+            L.control.scale({metric:true, imperial:false, position:'bottomright'}).addTo(currentMap);
+
+            currentCluster = L.markerClusterGroup({ maxClusterRadius: 40 });
+            currentMap.addLayer(currentCluster);
+
+            renderFloorTabs();
+            renderMarkers();
+            renderDeptList();
+            renderLegend();
+
+            const bounds = L.latLngBounds(h.stops.map(s=>[s.lat, s.lng]));
+            currentMap.fitBounds(bounds, { padding:[30,30] });
+        }
+
+        function makeIcon(color, num){
+            return L.divIcon({
+                className:'', iconSize:[24,24], iconAnchor:[12,12],
+                html:`<div style="background:${color};color:#fff;width:24px;height:24px;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;
+                    border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);">${num}</div>`
+            });
+        }
+
+        let markerRefs = [];
+
+        function renderMarkers(){
+            currentCluster.clearLayers();
+            markerRefs = [];
+            const h = HOSPITALS[currentHospitalId];
+            const colors = zonePaletteFor(h.stops);
+            h.stops.forEach((s,i)=>{
+                if (activeFloor && s.floor !== activeFloor) return;
+                const m = L.marker([s.lat, s.lng], { icon: makeIcon(colors[s.zone] || '#666', i+1) });
+                m.bindPopup(`<b>${s.name}</b><br>${s.sub}<br><small>${s.floor}</small>`);
+                currentCluster.addLayer(m);
+                markerRefs.push({ marker:m, index:i });
+            });
+        }
+
+        function renderFloorTabs(){
+            const h = HOSPITALS[currentHospitalId];
+            const floors = [...new Set(h.stops.map(s=>s.floor))];
+            const wrap = document.getElementById('floorTabs');
+            if (floors.length <= 1) { wrap.style.display = 'none'; return; }
+            wrap.style.display = 'flex';
+            wrap.innerHTML = '';
+            const allBtn = document.createElement('button');
+            allBtn.textContent = 'Tất cả tầng';
+            allBtn.className = activeFloor === null ? 'active' : '';
+            allBtn.onclick = () => { activeFloor = null; renderFloorTabs(); renderMarkers(); renderDeptList(); };
+            wrap.appendChild(allBtn);
+            floors.forEach(f=>{
+                const b = document.createElement('button');
+                b.textContent = f;
+                b.className = activeFloor === f ? 'active' : '';
+                b.onclick = () => { activeFloor = f; renderFloorTabs(); renderMarkers(); renderDeptList(); };
+                wrap.appendChild(b);
+            });
+        }
+
+        function renderDeptList(filterText=''){
+            const h = HOSPITALS[currentHospitalId];
+            const colors = zonePaletteFor(h.stops);
+            const listEl = document.getElementById('deptList');
+            listEl.innerHTML = '';
+            const q = filterText.trim().toLowerCase();
+            let shown = 0;
+            h.stops.forEach((s,i)=>{
+                if (activeFloor && s.floor !== activeFloor) return;
+                if (q && !(s.name.toLowerCase().includes(q) || s.sub.toLowerCase().includes(q))) return;
+                shown++;
+                const div = document.createElement('div');
+                div.className = 'dept-item';
+                div.innerHTML = `<span class="num" style="background:${colors[s.zone] || '#666'}">${i+1}</span>
+                    <span>${s.name} <span style="color:#94a3b8;">· ${s.floor}</span></span>`;
+                div.onclick = () => {
+                    currentMap.flyTo([s.lat, s.lng], 19, { duration:0.6 });
+                    const found = markerRefs.find(m=>m.index===i);
+                    if (found) found.marker.openPopup();
+                };
+                listEl.appendChild(div);
+            });
+            if (shown === 0) {
+                listEl.innerHTML = '<p style="color:#94a3b8;font-size:12.5px;padding:6px 0;">Không tìm thấy khoa/phòng phù hợp.</p>';
             }
+        }
+
+        function renderLegend(){
+            const h = HOSPITALS[currentHospitalId];
+            const colors = zonePaletteFor(h.stops);
+            const el = document.getElementById('legend');
+            el.innerHTML = Object.keys(colors).map(z=>
+                `<span><span class="dot" style="background:${colors[z]}"></span>${ZONE_LABELS[z] || z}</span>`
+            ).join('');
         }
     </script>
 </body>
 </html>
-
