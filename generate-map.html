@@ -143,10 +143,13 @@
                 return false;
             }
             try {
-                // Gửi dạng text/plain (mặc định của fetch khi body là string) để tránh
-                // Apps Script chặn do CORS preflight với header application/json.
-                await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-                return true;
+                const params = new URLSearchParams();
+                params.set('action', 'addStop');
+                Object.keys(payload).forEach(k => params.set(k, payload[k] == null ? '' : String(payload[k])));
+                const res = await fetch(APPS_SCRIPT_URL + '?' + params.toString());
+                const data = await res.json();
+                if (data.status !== 'ok') console.error('Apps Script báo lỗi:', data.message);
+                return data.status === 'ok';
             } catch (err) {
                 console.error('Gửi lên Google Sheet thất bại:', err);
                 return false;
