@@ -113,6 +113,11 @@
                 <input type="text" id="pinPhoto" placeholder="Dán link ảnh từ Google Drive/Photos (để chế độ công khai)">
             </div>
             <p class="hint" id="pendingPinHint">👉 Bấm một điểm trên bản đồ để ghim, rồi điền thông tin và bấm "Lưu điểm này".</p>
+            <div class="form-group">
+                <label>Hoặc gõ tay toạ độ điểm này (để đối chiếu với việc bấm map)</label>
+                <input type="text" id="manualLatLng" placeholder="Ví dụ: 21.023456, 105.646789">
+                <button type="button" class="secondary" style="margin-top:8px;" onclick="setPinFromManualLatLng()">Đặt điểm theo toạ độ này</button>
+            </div>
             <button onclick="saveCurrentPin()">Lưu điểm này</button>
             <button class="secondary" onclick="exportJSON()">Xuất JSON</button>
         </div>
@@ -230,12 +235,34 @@
             pendingMarker = L.marker(e.latlng, { opacity: 0.6 }).addTo(map);
             document.getElementById('pendingPinHint').innerHTML =
                 `📍 Đang chọn: <b>${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}</b> — điền thông tin bên trên rồi bấm "Lưu điểm này".`;
+            document.getElementById('manualLatLng').value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
 
             const centerInput = document.getElementById('hosCenter');
             if (!centerInput.value) {
                 centerInput.value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
             }
         });
+
+        // Cho phép gõ tay toạ độ (đối chiếu với việc bấm map) — đặt marker + pan bản đồ tới đúng đó
+        function setPinFromManualLatLng() {
+            const raw = document.getElementById('manualLatLng').value.trim();
+            const parts = raw.split(',').map(v => parseFloat(v.trim()));
+            if (parts.length !== 2 || parts.some(isNaN)) {
+                alert('Toạ độ không hợp lệ. Nhập đúng dạng: 21.023456, 105.646789');
+                return;
+            }
+            const [lat, lng] = parts;
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                alert('Toạ độ ngoài phạm vi hợp lệ (vĩ độ -90..90, kinh độ -180..180). Kiểm tra lại xem có nhầm lat/lng không.');
+                return;
+            }
+            pendingLatLng = L.latLng(lat, lng);
+            if (pendingMarker) map.removeLayer(pendingMarker);
+            pendingMarker = L.marker(pendingLatLng, { opacity: 0.6 }).addTo(map);
+            map.flyTo(pendingLatLng, 18, { duration: 0.8 });
+            document.getElementById('pendingPinHint').innerHTML =
+                `📍 Đang chọn (theo toạ độ gõ tay): <b>${lat.toFixed(6)}, ${lng.toFixed(6)}</b> — đối chiếu vị trí chấm tròn trên bản đồ, đúng rồi thì điền thông tin và bấm "Lưu điểm này".`;
+        }
 
         function locateMe() {
             if (!navigator.geolocation) {
@@ -338,11 +365,10 @@
 
             document.getElementById('pinName').value = '';
             document.getElementById('pinSub').value = '';
-            document.getElementById('pinFloor').value = '';
-            document.getElementById('pinZoneCustom').value = '';
             document.getElementById('pinPhoto').value = '';
+            document.getElementById('manualLatLng').value = '';
             document.getElementById('pendingPinHint').innerHTML =
-                '👉 Bấm điểm tiếp theo trên bản đồ để ghim, hoặc bấm "Xuất JSON" nếu đã xong.';
+                '👉 Bấm điểm tiếp theo trên bản đồ để ghim (Khu vực/Tầng vẫn giữ nguyên như vừa chọn — đổi lại nếu điểm tiếp theo khác khu vực/tầng), hoặc bấm "Xuất JSON" nếu đã xong.';
 
             renderPinList();
         }
