@@ -58,6 +58,14 @@
             </div>
 
             <div class="form-group">
+                <label>Chọn bệnh viện</label>
+                <select id="hosSelect" onchange="onHospitalSelect()">
+                    <option value="">+ Tạo bệnh viện mới...</option>
+                </select>
+                <p class="hint" style="margin:6px 0 0;">Danh sách này tự tải từ Google Sheet — chọn viện đã có để KHÔNG tạo trùng dữ liệu; chỉ chọn "Tạo bệnh viện mới" nếu viện chưa từng được ghim trước đó.</p>
+            </div>
+
+            <div class="form-group">
                 <label>Mã bệnh viện (id, không dấu, không cách)</label>
                 <input type="text" id="hosId" placeholder="vd: phusantw">
             </div>
@@ -89,12 +97,6 @@
             <div class="form-group">
                 <label>Khu vực (zone)</label>
                 <select id="pinZone">
-                    <option value="cong-bai-xe">Cổng / bãi xe</option>
-                    <option value="kham-benh">Khu khám bệnh</option>
-                    <option value="cap-cuu">Cấp cứu</option>
-                    <option value="duoc">Nhà thuốc</option>
-                    <option value="noi-tru">Khu nội trú</option>
-                    <option value="phau-thuat">Khu phẫu thuật</option>
                     <option value="__custom">+ Zone khác (tự nhập)...</option>
                 </select>
                 <input type="text" id="pinZoneCustom" placeholder="Nhập tên zone mới" style="display:none; margin-top:6px;">
@@ -143,6 +145,71 @@
             }
         }
 
+        // ---- Danh mục Bệnh viện & Zone tải từ Google Sheet, dùng để tránh gõ trùng/gõ sai ----
+        let hospitalsMeta = []; // [{hospitalId,name,address,centerLat,centerLng}]
+        let zonesMeta = [];     // [{zoneId,label,colorHex}]
+        const ZONE_PALETTE = ["#3b82f6","#e11d48","#059669","#f59e0b","#7c3aed","#0891b2","#8A8370"];
+
+        function slugify(text) {
+            return text.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/đ/gi, 'd').toLowerCase().trim()
+                .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        }
+
+        async function loadMeta() {
+            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('PASTE_')) return;
+            try {
+                const res = await fetch(APPS_SCRIPT_URL + '?type=meta');
+                const data = await res.json();
+                hospitalsMeta = data.hospitals || [];
+                zonesMeta = data.zones || [];
+            } catch (err) {
+                console.warn('Không tải được danh mục bệnh viện/zone:', err);
+                return;
+            }
+
+            const hosSelect = document.getElementById('hosSelect');
+            hospitalsMeta.forEach(h => {
+                const opt = document.createElement('option');
+                opt.value = h.hospitalId;
+                opt.textContent = h.name;
+                hosSelect.appendChild(opt);
+            });
+
+            const pinZone = document.getElementById('pinZone');
+            const customOpt = pinZone.querySelector('option[value="__custom"]');
+            zonesMeta.forEach(z => {
+                const opt = document.createElement('option');
+                opt.value = z.zoneId;
+                opt.textContent = z.label;
+                pinZone.insertBefore(opt, customOpt);
+            });
+        }
+
+        function onHospitalSelect() {
+            const id = document.getElementById('hosSelect').value;
+            const hosId = document.getElementById('hosId');
+            const hosName = document.getElementById('hosName');
+            const hosAddr = document.getElementById('hosAddr');
+            const hosCenter = document.getElementById('hosCenter');
+
+            if (!id) {
+                // Tạo bệnh viện mới: cho phép gõ tay, xoá trắng để nhập từ đầu
+                hosId.value = ''; hosName.value = ''; hosAddr.value = ''; hosCenter.value = '';
+                hosId.readOnly = false;
+                return;
+            }
+            const h = hospitalsMeta.find(x => x.hospitalId === id);
+            if (!h) return;
+            hosId.value = h.hospitalId;
+            hosName.value = h.name;
+            hosAddr.value = h.address;
+            hosCenter.value = `${h.centerLat}, ${h.centerLng}`;
+            hosId.readOnly = true; // tránh gõ nhầm tạo lệch id khi đã chọn viện có sẵn
+        }
+
+        loadMeta();
+
         // Trung tâm Hà Nội làm mặc định khi chưa ghim điểm nào
         const map = L.map('pinMap').setView([21.0285, 105.8542], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -183,9 +250,20 @@
             const sub = document.getElementById('pinSub').value.trim();
             const floor = document.getElementById('pinFloor').value.trim() || 'Tầng 1';
             const photoUrl = document.getElementById('pinPhoto').value.trim();
-            let zone = document.getElementById('pinZone').value;
-            if (zone === '__custom') {
-                zone = document.getElementById('pinZoneCustom').value.trim() || 'khac';
+
+            let zoneId = document.getElementById('pinZone').value;
+            let zoneLabel, zoneColor, isNewZone = false;
+            if (zoneId === '__custom') {
+                const customText = document.getElementById('pinZoneCustom').value.trim();
+                if (!customText) { alert('Vui lòng nhập tên zone mới!'); return; }
+                zoneId = slugify(customText) || 'khac';
+                zoneLabel = customText;
+                zoneColor = ZONE_PALETTE[zonesMeta.length % ZONE_PALETTE.length];
+                isNewZone = !zonesMeta.some(z => z.zoneId === zoneId);
+            } else {
+                const z = zonesMeta.find(x => x.zoneId === zoneId);
+                zoneLabel = z ? z.label : zoneId;
+                zoneColor = z ? z.colorHex : '#666666';
             }
             if (!name) { alert('Vui lòng nhập tên khoa/phòng ban!'); return; }
 
@@ -194,7 +272,7 @@
             const [centerLat, centerLng] = centerRaw ? centerRaw.split(',').map(v => parseFloat(v.trim())) : [pendingLatLng.lat, pendingLatLng.lng];
 
             pins.push({
-                name, sub, lat: pendingLatLng.lat, lng: pendingLatLng.lng, zone, floor,
+                name, sub, lat: pendingLatLng.lat, lng: pendingLatLng.lng, zone: zoneId, floor,
                 photoUrl, contributor, capturedAt
             });
 
@@ -202,8 +280,9 @@
             sendToSheet({
                 hospitalId: hosId, hospitalName: hosName, hospitalAddress: hosAddr,
                 centerLat, centerLng,
+                zoneId, zoneLabel, zoneColor,
                 name, sub, lat: pendingLatLng.lat, lng: pendingLatLng.lng,
-                zone, floor, photoUrl, contributor, capturedAt
+                floor, photoUrl, contributor, capturedAt
             }).then(ok => {
                 document.getElementById('pendingPinHint').innerHTML = ok
                     ? '✅ Đã lưu lên Google Sheet — hiển thị ngay trên trang Tra Cứu. Bấm điểm tiếp theo để ghim thêm.'
@@ -223,6 +302,16 @@
 
             if (pendingMarker) { map.removeLayer(pendingMarker); pendingMarker = null; }
             pendingLatLng = null;
+
+            if (isNewZone) {
+                zonesMeta.push({ zoneId, label: zoneLabel, colorHex: zoneColor });
+                const pinZoneSelect = document.getElementById('pinZone');
+                const opt = document.createElement('option');
+                opt.value = zoneId; opt.textContent = zoneLabel;
+                pinZoneSelect.insertBefore(opt, pinZoneSelect.querySelector('option[value="__custom"]'));
+                pinZoneSelect.value = zoneId;
+                document.getElementById('pinZoneCustom').style.display = 'none';
+            }
 
             document.getElementById('pinName').value = '';
             document.getElementById('pinSub').value = '';

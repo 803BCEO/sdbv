@@ -143,7 +143,24 @@
         function zonePaletteFor(stops){
             const zones = [...new Set(stops.map(s=>s.zone))];
             const map = {};
-            zones.forEach((z,i)=> map[z] = PALETTE[i % PALETTE.length]);
+            zones.forEach((z,i)=> {
+                const s = stops.find(x => x.zone === z && x.zoneColor);
+                map[z] = (s && s.zoneColor) || PALETTE[i % PALETTE.length];
+            });
+            return map;
+        }
+
+        function zoneLabelFor(stop){
+            return stop.zoneLabel || ZONE_LABELS[stop.zone] || stop.zone;
+        }
+
+        function zoneLabelMapFor(stops){
+            const zones = [...new Set(stops.map(s=>s.zone))];
+            const map = {};
+            zones.forEach(z=> {
+                const s = stops.find(x => x.zone === z);
+                map[z] = zoneLabelFor(s);
+            });
             return map;
         }
 
@@ -328,9 +345,10 @@
         function renderLegend(){
             const h = HOSPITALS[currentHospitalId];
             const colors = zonePaletteFor(h.stops);
+            const labels = zoneLabelMapFor(h.stops);
             const el = document.getElementById('legend');
             el.innerHTML = Object.keys(colors).map(z=>
-                `<span><span class="dot" style="background:${colors[z]}"></span>${ZONE_LABELS[z] || z}</span>`
+                `<span><span class="dot" style="background:${colors[z]}"></span>${labels[z] || z}</span>`
             ).join('');
         }
 
