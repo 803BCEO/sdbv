@@ -46,8 +46,9 @@
             <h2>Tạo Sơ Đồ Mới</h2>
             <p class="hint">
                 Bấm trực tiếp lên bản đồ vệ tinh/OSM bên phải để <b>ghim toạ độ GPS thật</b> cho từng khoa/phòng —
-                không gõ tay toạ độ. Sau khi ghim xong tất cả điểm, bấm "Xuất JSON" và dán khối đó vào biến
-                <code>HOSPITALS</code> trong file <code>index.html</code>.
+                không gõ tay toạ độ. Mỗi khi bấm "Lưu điểm này", dữ liệu <b>tự động gửi lên Google Sheet</b> và
+                hiển thị ngay trên trang Tra Cứu (<code>index.html</code>) — không cần thao tác thủ công nào thêm.
+                Nút "Xuất JSON" bên dưới chỉ dùng để sao lưu dự phòng, không bắt buộc.
             </p>
 
             <div class="form-group">
@@ -123,6 +124,25 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script>
+        // Dán URL Web App của Apps Script vào đây sau khi deploy (xem hướng dẫn AppsScript-Code.gs)
+        const APPS_SCRIPT_URL = "PASTE_YOUR_WEB_APP_URL_HERE";
+
+        async function sendToSheet(payload) {
+            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('PASTE_')) {
+                console.warn('Chưa cấu hình APPS_SCRIPT_URL — điểm chỉ lưu tạm trên trình duyệt này, CHƯA lên Google Sheet.');
+                return false;
+            }
+            try {
+                // Gửi dạng text/plain (mặc định của fetch khi body là string) để tránh
+                // Apps Script chặn do CORS preflight với header application/json.
+                await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+                return true;
+            } catch (err) {
+                console.error('Gửi lên Google Sheet thất bại:', err);
+                return false;
+            }
+        }
+
         // Trung tâm Hà Nội làm mặc định khi chưa ghim điểm nào
         const map = L.map('pinMap').setView([21.0285, 105.8542], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -151,10 +171,14 @@
             document.getElementById('pinZoneCustom').style.display = e.target.value === '__custom' ? 'block' : 'none';
         });
 
-        function saveCurrentPin() {
+        async function saveCurrentPin() {
             const contributor = document.getElementById('contributorName').value.trim();
             if (!contributor) { alert('Vui lòng nhập Tên người đóng góp trước khi ghim điểm — dùng để xác thực dữ liệu!'); return; }
             if (!pendingLatLng) { alert('Vui lòng bấm một điểm trên bản đồ trước!'); return; }
+            const hosId = document.getElementById('hosId').value.trim();
+            const hosName = document.getElementById('hosName').value.trim();
+            const hosAddr = document.getElementById('hosAddr').value.trim();
+            if (!hosId || !hosName) { alert('Vui lòng điền Mã bệnh viện và Tên bệnh viện trước khi lưu điểm!'); return; }
             const name = document.getElementById('pinName').value.trim();
             const sub = document.getElementById('pinSub').value.trim();
             const floor = document.getElementById('pinFloor').value.trim() || 'Tầng 1';
@@ -166,9 +190,24 @@
             if (!name) { alert('Vui lòng nhập tên khoa/phòng ban!'); return; }
 
             const capturedAt = new Date().toLocaleString('vi-VN');
+            const centerRaw = document.getElementById('hosCenter').value.trim();
+            const [centerLat, centerLng] = centerRaw ? centerRaw.split(',').map(v => parseFloat(v.trim())) : [pendingLatLng.lat, pendingLatLng.lng];
+
             pins.push({
                 name, sub, lat: pendingLatLng.lat, lng: pendingLatLng.lng, zone, floor,
                 photoUrl, contributor, capturedAt
+            });
+
+            // Gửi ngay lên Google Sheet — không chờ bước "Xuất JSON" nữa
+            sendToSheet({
+                hospitalId: hosId, hospitalName: hosName, hospitalAddress: hosAddr,
+                centerLat, centerLng,
+                name, sub, lat: pendingLatLng.lat, lng: pendingLatLng.lng,
+                zone, floor, photoUrl, contributor, capturedAt
+            }).then(ok => {
+                document.getElementById('pendingPinHint').innerHTML = ok
+                    ? '✅ Đã lưu lên Google Sheet — hiển thị ngay trên trang Tra Cứu. Bấm điểm tiếp theo để ghim thêm.'
+                    : '⚠️ Chưa gửi được lên Google Sheet (xem console) — điểm này mới chỉ lưu tạm trên máy.';
             });
 
             const finalIcon = L.divIcon({

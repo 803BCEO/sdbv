@@ -147,22 +147,57 @@
             return map;
         }
 
+        // Dán URL Web App của Apps Script vào đây sau khi deploy (xem hướng dẫn AppsScript-Code.gs)
+        const APPS_SCRIPT_URL = "PASTE_YOUR_WEB_APP_URL_HERE";
+
+        // ---- Lấy dữ liệu do cộng đồng đóng góp từ Google Sheet, gộp vào HOSPITALS ----
+        async function loadRemoteStops() {
+            if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('PASTE_')) return {};
+            try {
+                const res = await fetch(APPS_SCRIPT_URL);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return await res.json();
+            } catch (err) {
+                console.warn('Không tải được dữ liệu đóng góp từ Google Sheet:', err);
+                return {};
+            }
+        }
+
+        function mergeRemoteHospitals(remote) {
+            Object.keys(remote).forEach(id => {
+                const r = remote[id];
+                if (!HOSPITALS[id]) {
+                    HOSPITALS[id] = { name: r.name, address: r.address, center: r.center, stops: [] };
+                }
+                r.stops.forEach(s => {
+                    // Tránh thêm trùng nếu lỡ tải lại trang / trùng tên + toạ độ gần giống nhau
+                    const exists = HOSPITALS[id].stops.some(x =>
+                        x.name === s.name && Math.abs(x.lat - s.lat) < 0.00001 && Math.abs(x.lng - s.lng) < 0.00001
+                    );
+                    if (!exists) HOSPITALS[id].stops.push(s);
+                });
+            });
+        }
+
         // ---- Render danh sách thẻ bệnh viện ở cột trái ----
-        const listEl = document.getElementById('list');
-        Object.keys(HOSPITALS).forEach(id=>{
-            const h = HOSPITALS[id];
-            const card = document.createElement('div');
-            card.className = 'hospital-card';
-            card.id = 'card-' + id;
-            card.dataset.name = (h.name + ' ' + h.address).toLowerCase();
-            card.innerHTML = `
-                <div>
-                    <h3>${h.name}</h3>
-                    <p>📍 ${h.address}</p>
-                </div>
-                <button class="btn-view" onclick="showHospitalMap('${id}')">Xem Sơ Đồ →</button>`;
-            listEl.appendChild(card);
-        });
+        function renderHospitalList() {
+            const listEl = document.getElementById('list');
+            listEl.innerHTML = '';
+            Object.keys(HOSPITALS).forEach(id=>{
+                const h = HOSPITALS[id];
+                const card = document.createElement('div');
+                card.className = 'hospital-card';
+                card.id = 'card-' + id;
+                card.dataset.name = (h.name + ' ' + h.address).toLowerCase();
+                card.innerHTML = `
+                    <div>
+                        <h3>${h.name}</h3>
+                        <p>📍 ${h.address}</p>
+                    </div>
+                    <button class="btn-view" onclick="showHospitalMap('${id}')">Xem Sơ Đồ →</button>`;
+                listEl.appendChild(card);
+            });
+        }
 
         function searchHospital() {
             const input = document.getElementById('search').value.toLowerCase();
@@ -298,6 +333,14 @@
                 `<span><span class="dot" style="background:${colors[z]}"></span>${ZONE_LABELS[z] || z}</span>`
             ).join('');
         }
+
+        // ---- Khởi động: tải dữ liệu đóng góp từ Google Sheet, gộp vào HOSPITALS, rồi mới render ----
+        async function init() {
+            const remote = await loadRemoteStops();
+            mergeRemoteHospitals(remote);
+            renderHospitalList();
+        }
+        init();
     </script>
 </body>
 </html>
