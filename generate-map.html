@@ -51,6 +51,12 @@
             </p>
 
             <div class="form-group">
+                <label>Tên người đóng góp <span style="color:#e11d48;">*</span></label>
+                <input type="text" id="contributorName" placeholder="Ví dụ: Nguyễn Văn A">
+                <p class="hint" style="margin:6px 0 0;">Tên này sẽ tự động gắn vào mọi điểm bạn ghim trong phiên làm việc này, để tăng độ xác thực khi đối chiếu dữ liệu.</p>
+            </div>
+
+            <div class="form-group">
                 <label>Mã bệnh viện (id, không dấu, không cách)</label>
                 <input type="text" id="hosId" placeholder="vd: phusantw">
             </div>
@@ -95,6 +101,10 @@
             <div class="form-group">
                 <label>Tầng</label>
                 <input type="text" id="pinFloor" placeholder="Ví dụ: Tầng 1, Ngoài trời...">
+            </div>
+            <div class="form-group">
+                <label>Link ảnh minh hoạ (không bắt buộc)</label>
+                <input type="text" id="pinPhoto" placeholder="Dán link ảnh từ Google Drive/Photos (để chế độ công khai)">
             </div>
             <p class="hint" id="pendingPinHint">👉 Bấm một điểm trên bản đồ để ghim, rồi điền thông tin và bấm "Lưu điểm này".</p>
             <button onclick="saveCurrentPin()">Lưu điểm này</button>
@@ -142,17 +152,24 @@
         });
 
         function saveCurrentPin() {
+            const contributor = document.getElementById('contributorName').value.trim();
+            if (!contributor) { alert('Vui lòng nhập Tên người đóng góp trước khi ghim điểm — dùng để xác thực dữ liệu!'); return; }
             if (!pendingLatLng) { alert('Vui lòng bấm một điểm trên bản đồ trước!'); return; }
             const name = document.getElementById('pinName').value.trim();
             const sub = document.getElementById('pinSub').value.trim();
             const floor = document.getElementById('pinFloor').value.trim() || 'Tầng 1';
+            const photoUrl = document.getElementById('pinPhoto').value.trim();
             let zone = document.getElementById('pinZone').value;
             if (zone === '__custom') {
                 zone = document.getElementById('pinZoneCustom').value.trim() || 'khac';
             }
             if (!name) { alert('Vui lòng nhập tên khoa/phòng ban!'); return; }
 
-            pins.push({ name, sub, lat: pendingLatLng.lat, lng: pendingLatLng.lng, zone, floor });
+            const capturedAt = new Date().toLocaleString('vi-VN');
+            pins.push({
+                name, sub, lat: pendingLatLng.lat, lng: pendingLatLng.lng, zone, floor,
+                photoUrl, contributor, capturedAt
+            });
 
             const finalIcon = L.divIcon({
                 className: '', iconSize:[22,22], iconAnchor:[11,11],
@@ -160,7 +177,10 @@
                     display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;
                     border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);">${pins.length}</div>`
             });
-            L.marker(pendingLatLng, { icon: finalIcon }).addTo(map).bindPopup(`<b>${name}</b><br>${sub}`);
+            const popupHtml = `<b>${name}</b><br>${sub}` +
+                (photoUrl ? `<br><img src="${photoUrl}" style="width:160px;border-radius:4px;margin-top:6px;" onerror="this.style.display='none'">` : '') +
+                `<br><small>Đóng góp: ${contributor} · ${capturedAt}</small>`;
+            L.marker(pendingLatLng, { icon: finalIcon }).addTo(map).bindPopup(popupHtml);
 
             if (pendingMarker) { map.removeLayer(pendingMarker); pendingMarker = null; }
             pendingLatLng = null;
@@ -169,6 +189,7 @@
             document.getElementById('pinSub').value = '';
             document.getElementById('pinFloor').value = '';
             document.getElementById('pinZoneCustom').value = '';
+            document.getElementById('pinPhoto').value = '';
             document.getElementById('pendingPinHint').innerHTML =
                 '👉 Bấm điểm tiếp theo trên bản đồ để ghim, hoặc bấm "Xuất JSON" nếu đã xong.';
 
@@ -188,7 +209,10 @@
                         display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;
                         border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35);">${idx+1}</div>`
                 });
-                L.marker([p.lat, p.lng], { icon }).addTo(map).bindPopup(`<b>${p.name}</b><br>${p.sub}`);
+                const popupHtml = `<b>${p.name}</b><br>${p.sub}` +
+                    (p.photoUrl ? `<br><img src="${p.photoUrl}" style="width:160px;border-radius:4px;margin-top:6px;" onerror="this.style.display='none'">` : '') +
+                    `<br><small>Đóng góp: ${p.contributor} · ${p.capturedAt}</small>`;
+                L.marker([p.lat, p.lng], { icon }).addTo(map).bindPopup(popupHtml);
             });
             renderPinList();
         }
@@ -202,7 +226,11 @@
             }
             el.innerHTML = pins.map((p, i) => `
                 <div class="pin-item">
-                    <span>${i+1}. <b>${p.name}</b> — ${p.floor} (${p.lat.toFixed(5)}, ${p.lng.toFixed(5)})</span>
+                    <span>
+                        ${p.photoUrl ? `<img src="${p.photoUrl}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">` : ''}
+                        ${i+1}. <b>${p.name}</b> — ${p.floor} (${p.lat.toFixed(5)}, ${p.lng.toFixed(5)})
+                        <br><span style="color:#94a3b8;font-size:11px;">👤 ${p.contributor} · 🕒 ${p.capturedAt}</span>
+                    </span>
                     <button onclick="removePin(${i})">Xoá</button>
                 </div>`).join('');
         }
@@ -228,7 +256,10 @@
                     center: center,
                     stops: pins.map(p => ({
                         name: p.name, sub: p.sub, lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6),
-                        zone: p.zone, floor: p.floor
+                        zone: p.zone, floor: p.floor,
+                        photoUrl: p.photoUrl || null,
+                        contributor: p.contributor,
+                        capturedAt: p.capturedAt
                     }))
                 }
             };

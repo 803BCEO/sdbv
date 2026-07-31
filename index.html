@@ -234,7 +234,9 @@
             h.stops.forEach((s,i)=>{
                 if (activeFloor && s.floor !== activeFloor) return;
                 const m = L.marker([s.lat, s.lng], { icon: makeIcon(colors[s.zone] || '#666', i+1) });
-                m.bindPopup(`<b>${s.name}</b><br>${s.sub}<br><small>${s.floor}</small>`);
+                const photoHtml = s.photoUrl ? `<br><img src="${s.photoUrl}" style="width:160px;border-radius:4px;margin-top:6px;" onerror="this.style.display='none'">` : '';
+                const contribHtml = s.contributor ? `<br><small style="color:#94a3b8;">👤 Đóng góp: ${s.contributor}${s.capturedAt ? ' · ' + s.capturedAt : ''}</small>` : '';
+                m.bindPopup(`<b>${s.name}</b><br>${s.sub}<br><small>${s.floor}</small>${photoHtml}${contribHtml}`);
                 currentCluster.addLayer(m);
                 markerRefs.push({ marker:m, index:i });
             });
