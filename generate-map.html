@@ -192,6 +192,7 @@
                 opt.textContent = z.label;
                 pinZone.insertBefore(opt, customOpt);
             });
+            updateZoneCustomVisibility();
         }
 
         function onHospitalSelect() {
@@ -284,9 +285,14 @@
             );
         }
 
-        document.getElementById('pinZone').addEventListener('change', (e) => {
-            document.getElementById('pinZoneCustom').style.display = e.target.value === '__custom' ? 'block' : 'none';
-        });
+        function updateZoneCustomVisibility() {
+            document.getElementById('pinZoneCustom').style.display =
+                document.getElementById('pinZone').value === '__custom' ? 'block' : 'none';
+        }
+        document.getElementById('pinZone').addEventListener('change', updateZoneCustomVisibility);
+        // Hiện sẵn ô nhập zone mới ngay từ đầu nếu "+ Zone khác" đang là lựa chọn duy nhất/mặc định
+        // (trường hợp Google Sheet chưa có zone nào, nên không có sự kiện 'change' nào xảy ra để tự lộ ra ô này)
+        updateZoneCustomVisibility();
 
         async function saveCurrentPin() {
             const contributor = document.getElementById('contributorName').value.trim();
